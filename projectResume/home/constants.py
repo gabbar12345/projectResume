@@ -1,0 +1,1 @@
+pdf_path = "C:/Users/rahulsingh594/Documents/Rahul/generated_resume666.docx"
