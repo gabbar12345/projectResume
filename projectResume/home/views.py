@@ -8,7 +8,7 @@ from django.http import HttpResponse
 import os
 
 from home.prompts import pre_experience
-from home.utilities import create_resume, get_response, save_resume
+from home.utilities import ResumePDF, create_resume, get_response, get_sample_data, save_resume
 from home.constants import pdf_path
 # Create your views here.
 class Home(APIView):
@@ -61,3 +61,37 @@ class Home(APIView):
         except Exception as err:
             logging.error(f"Exception occurred ->{err}")
             return HttpResponse(f"Error -> {err}", status=500)
+        
+class Resume2(APIView):
+    def post(self, request):
+        try:
+            jobRole = request.data.get('jobRole')
+            personal_details, academic_details, chapters, professional_summary, skills, positions_of_responsibility, projects, research_papers = get_sample_data()
+            print(research_papers)
+            # Generate PDF
+            pdf = ResumePDF(personal_details, chapters, academic_details, professional_summary, skills, positions_of_responsibility, projects, research_papers)
+            pdf.add_page()
+
+            # Add light grey background for the entire page
+            pdf.set_fill_color(250, 250, 250)  # Even lighter grey background
+            pdf.rect(0, 48, 210, 297-40, 'F')  # 297 is A4 height, 40 is header height
+
+            pdf.add_professional_summary()
+            for chapter in chapters:
+                pdf.add_chapter(chapter)
+            pdf.add_academic_details()
+            pdf.add_skills()
+            pdf.add_position_of_responsibility()
+            pdf.add_projects()
+            pdf.add_research_papers()
+
+            output_dir = r"C:/Users/rahulsingh594/Documents/Rahul"
+            os.makedirs(output_dir, exist_ok=True)
+            pdf.output(os.path.join(output_dir, 'resume14.pdf'))
+            return HttpResponse("success")
+        
+        except Exception as err:
+            logging.error(f"Exception occurred ->{err}")
+            return HttpResponse(f"Error -> {err}", status=500)
+        
+
