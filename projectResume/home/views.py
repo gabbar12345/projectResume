@@ -7,10 +7,25 @@ import fitz
 from django.http import HttpResponse
 import os
 
-from home.prompts import pre_experience
-from home.utilities import ResumePDF, create_resume, get_response, get_sample_data, save_resume
+from home.prompts import *
+from home.utilities import ResumePDF, create_resume, formatedResponse, get_response, get_sample_data, save_resume
 from home.constants import pdf_path
+from home.models import Submit
+from django.contrib import messages
 # Create your views here.
+def index(request):
+    return render(request,'index.html')
+
+def submit(request):
+    if request.method=="POST":
+        email=request.POST.get('email')
+        password=request.POST.get('pwd')
+        sub=Submit(email=email,password=password)
+        sub.save()
+        messages.success(request,"Data updated successfully")
+
+    return HttpResponse(Submit.objects.all())
+
 class Home(APIView):
     def post(self, request):
         try:
@@ -68,6 +83,21 @@ class Resume2(APIView):
             jobRole = request.data.get('jobRole')
             personal_details, academic_details, chapters, professional_summary, skills, positions_of_responsibility, projects, research_papers = get_sample_data()
             print(research_papers)
+            # Chapter Prompt Changes
+            chapter_prompt=resumePrompt.format(preData='chapters',data=chapters[0].body,job_role=jobRole)
+            response=formatedResponse(chapter_prompt)
+            chapters[0].body=response
+
+            # Professional Summary Prompt Changes
+            Prompt=resumePrompt.format(preData='professionalSummary',data=professional_summary,job_role=jobRole)
+            summary_response=formatedResponse(Prompt)
+            professional_summary=summary_response
+
+            for i in range(len(projects)):
+                prompt=resumePrompt.format(preData='project description',data=projects[i].description,job_role=jobRole)
+                project_response=formatedResponse(prompt)
+                projects[i].description=project_response
+
             # Generate PDF
             pdf = ResumePDF(personal_details, chapters, academic_details, professional_summary, skills, positions_of_responsibility, projects, research_papers)
             pdf.add_page()
@@ -94,4 +124,3 @@ class Resume2(APIView):
             logging.error(f"Exception occurred ->{err}")
             return HttpResponse(f"Error -> {err}", status=500)
         
-

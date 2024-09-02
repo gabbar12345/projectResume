@@ -22,6 +22,20 @@ def get_response(user_prompt,system_prompt=sy):
     result=response.choices[0].message.content
     return result
 
+def safe_literal_eval(expression):
+    try:
+        # Attempt to evaluate the string as a Python literal
+        result = ast.literal_eval(expression)
+        return result
+    except (ValueError, SyntaxError):
+        # If evaluation fails, return the original string
+        return expression
+
+def formatedResponse(prompt):
+    Body=get_response(user_prompt=prompt)
+    changeBody = safe_literal_eval(Body)
+    return changeBody
+
 class PersonalDetails:
     def __init__(self, name, email, phone, linkedin, photo_path):
         self.name = name
