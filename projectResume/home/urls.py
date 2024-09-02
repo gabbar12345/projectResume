@@ -17,9 +17,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from home.views import Home, Resume2
+from home import views
 
 urlpatterns = [
     path('parentue/',Home.as_view(),name='ParentUe'),
     path('resume2/',Resume2.as_view(),name='Resume2'),
+    path('',views.index,name="signup"),
+    path('submit',views.submit,name="submit")
 
 ]
