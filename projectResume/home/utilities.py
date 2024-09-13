@@ -8,6 +8,13 @@ from home.constants import pdf_path,image_path
 import os
 from home.prompts import sy
 from fpdf import FPDF
+from home.prompts import *
+
+# from home.gcp_secrets import access_secret_version
+from projectResume import settings
+
+
+# openai.api_key =settings.API_KEY
 
 def get_response(user_prompt,system_prompt=sy):
     response = openai.chat.completions.create(
@@ -15,7 +22,7 @@ def get_response(user_prompt,system_prompt=sy):
     model="gpt-4o",                    
     messages=[{"role": "system", "content": system_prompt,},
               {"role": "user", "content": user_prompt}],
-    temperature=0,
+    temperature=1,
     top_p=1
     )
     # print(response)
@@ -288,3 +295,42 @@ def save_resume(document, file_name=pdf_path):
         # Clean up temporary file, if it exists
         if os.path.exists(temp_file_name):
             os.remove(temp_file_name)
+
+def get_home_directory():
+    return os.path.expanduser("~")
+
+def generate_resume2(jobRole):
+    personal_details, academic_details, chapters, professional_summary, skills, positions_of_responsibility, projects, research_papers = get_sample_data()
+            # Chapter Prompt Changes
+    chapter_prompt=resumePrompt.format(preData='chapters',data=chapters[0].body,job_role=jobRole)
+    response=formatedResponse(chapter_prompt)
+    chapters[0].body=response
+
+    # Professional Summary Prompt Changes
+    Prompt=resumePrompt.format(preData='professionalSummary',data=professional_summary,job_role=jobRole)
+    summary_response=formatedResponse(Prompt)
+    professional_summary=summary_response
+
+    for i in range(len(projects)):
+        prompt=resumePrompt.format(preData='project description',data=projects[i].description,job_role=jobRole)
+        project_response=formatedResponse(prompt)
+        projects[i].description=project_response
+
+    # Generate PDF
+    pdf = ResumePDF(personal_details, chapters, academic_details, professional_summary, skills, positions_of_responsibility, projects, research_papers)
+    pdf.add_page()
+
+    # Add light grey background for the entire page
+    pdf.set_fill_color(250, 250, 250)  # Even lighter grey background
+    pdf.rect(0, 48, 210, 297-40, 'F')  # 297 is A4 height, 40 is header height
+
+    pdf.add_professional_summary()
+    for chapter in chapters:
+        pdf.add_chapter(chapter)
+    pdf.add_academic_details()
+    pdf.add_skills()
+    pdf.add_position_of_responsibility()
+    pdf.add_projects()
+    pdf.add_research_papers()
+
+    return pdf
