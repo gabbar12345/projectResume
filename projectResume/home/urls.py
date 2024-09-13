@@ -16,12 +16,14 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from home.views import Home, Resume2
+from home.views import Home, Preview, Resume2, form_view
 from home import views
 
 urlpatterns = [
     path('parentue/',Home.as_view(),name='ParentUe'),
+    path('form/', form_view, name='form-view'),
     path('resume2/',Resume2.as_view(),name='Resume2'),
+    path('preview/',Preview.as_view(),name='Preview'),
     path('',views.index,name="signup"),
     path('submit',views.submit,name="submit")
 

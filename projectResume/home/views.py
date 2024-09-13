@@ -3,15 +3,18 @@ import logging
 from django.shortcuts import render
 from rest_framework.views import APIView
 from django.http import Http404, HttpResponse, JsonResponse
-import fitz
 from django.http import HttpResponse
 import os
 
 from home.prompts import *
-from home.utilities import ResumePDF, create_resume, formatedResponse, get_response, get_sample_data, save_resume
+from home.utilities import ResumePDF, create_resume, formatedResponse, generate_resume2, get_home_directory, get_response, get_sample_data, save_resume
 from home.constants import pdf_path
 from home.models import Submit
 from django.contrib import messages
+from rest_framework.permissions import AllowAny
+import base64
+import tempfile
+from django.http import FileResponse, Http404
 # Create your views here.
 def index(request):
     return render(request,'index.html')
@@ -25,6 +28,9 @@ def submit(request):
         messages.success(request,"Data updated successfully")
 
     return HttpResponse(Submit.objects.all())
+    
+def form_view(request):
+    return render(request, 'resumeForm.html')
 
 class Home(APIView):
     def post(self, request):
@@ -65,7 +71,7 @@ class Home(APIView):
                 ]
             }
         }
-            experience_prompt=pre_experience.format(experience=fields["sections"]["Experience"],job_role=jobRole)
+            experience_prompt=pre_experience.format(experience=fields["sections"]["Experience"],data=jobRole)
             et=get_response(user_prompt=experience_prompt)
             f = ast.literal_eval(et)
             fields["sections"]["Experience"]=f
@@ -76,51 +82,39 @@ class Home(APIView):
         except Exception as err:
             logging.error(f"Exception occurred ->{err}")
             return HttpResponse(f"Error -> {err}", status=500)
-        
+              
 class Resume2(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
-        try:
-            jobRole = request.data.get('jobRole')
-            personal_details, academic_details, chapters, professional_summary, skills, positions_of_responsibility, projects, research_papers = get_sample_data()
-            print(research_papers)
-            # Chapter Prompt Changes
-            chapter_prompt=resumePrompt.format(preData='chapters',data=chapters[0].body,job_role=jobRole)
-            response=formatedResponse(chapter_prompt)
-            chapters[0].body=response
-
-            # Professional Summary Prompt Changes
-            Prompt=resumePrompt.format(preData='professionalSummary',data=professional_summary,job_role=jobRole)
-            summary_response=formatedResponse(Prompt)
-            professional_summary=summary_response
-
-            for i in range(len(projects)):
-                prompt=resumePrompt.format(preData='project description',data=projects[i].description,job_role=jobRole)
-                project_response=formatedResponse(prompt)
-                projects[i].description=project_response
-
-            # Generate PDF
-            pdf = ResumePDF(personal_details, chapters, academic_details, professional_summary, skills, positions_of_responsibility, projects, research_papers)
-            pdf.add_page()
-
-            # Add light grey background for the entire page
-            pdf.set_fill_color(250, 250, 250)  # Even lighter grey background
-            pdf.rect(0, 48, 210, 297-40, 'F')  # 297 is A4 height, 40 is header height
-
-            pdf.add_professional_summary()
-            for chapter in chapters:
-                pdf.add_chapter(chapter)
-            pdf.add_academic_details()
-            pdf.add_skills()
-            pdf.add_position_of_responsibility()
-            pdf.add_projects()
-            pdf.add_research_papers()
-
-            output_dir = r"C:/Users/rahulsingh594/Documents/Rahul"
-            os.makedirs(output_dir, exist_ok=True)
-            pdf.output(os.path.join(output_dir, 'resume14.pdf'))
-            return HttpResponse("success")
-        
+        try: 
+            jobRole = request.data.get('jobRole', '')
+            generatedPdf=generate_resume2(jobRole)
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+            generatedPdf.output(temp_file.name)
+            temp_file.close()
+            request.session['temp_pdf_path'] = temp_file.name
+            message = f"Successfully created resume for {jobRole}"
+            messages.success(request, message)
+            return render(request, 'resumeForm.html', {'message': message})
+            # output_dir = get_home_directory()
+            # os.makedirs(output_dir, exist_ok=True)
+            # pdf.output(os.path.join(output_dir, 'resume.pdf'))
+           
         except Exception as err:
             logging.error(f"Exception occurred ->{err}")
             return HttpResponse(f"Error -> {err}", status=500)
+        
+class Preview(APIView):
+    permission_classes = [AllowAny]
+    def get(self, request):
+        try: 
+            # jobRole = request.data.get('jobRole', '')
+            generatedPdf=request.session.get('temp_pdf_path')
+            if not generatedPdf or not os.path.exists(generatedPdf):
+                raise Http404("PDF not found. Please generate First")
+            return FileResponse(open(generatedPdf, 'rb'), content_type='application/pdf')
+        except Exception as err:
+            logging.error(f"Exception occurred ->{err}")
+            return HttpResponse(f"Error -> {err}", status=500)
+
         
