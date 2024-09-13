@@ -16,7 +16,6 @@ from projectResume import settings
 
 # openai.api_key =settings.API_KEY
 
-openai.api_key='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'
 def get_response(user_prompt,system_prompt=sy):
     response = openai.chat.completions.create(
     # model="gpt-4", 
